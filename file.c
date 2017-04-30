@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <string.h>
 
+#include "log.h"
 #include "file.h"
 
 char *
@@ -19,28 +20,37 @@ plxr_alloc_file(const char *path, off_t *size)
 	int fd;
 
 	if ((fd = open(path, O_RDONLY)) == -1)
-		goto error_exit;
+	{
+		ERROR("open");
+		return NULL;
+	}
 
-	if ((fstat(fd, &info) != 0))
-		goto error_cleanup_file;
+	if ((fstat(fd, &info) == -1))
+	{
+		close(fd); /* clean up file descriptor */
+		ERROR("fstat");
+		return NULL;
+	}
 
 	if ((buffer = malloc(info.st_size + 1)) == NULL)
-		goto error_cleanup_file;
+	{
+		close(fd);
+		ERROR("malloc");
+		return NULL;
+	}
 
 	if ((read(fd, buffer, info.st_size) == -1))
-		goto error_cleanup_buffer;
+	{
+		close(fd);
+		free(buffer); /* clean up this buffer since we're not returning it */
+		ERROR("read");
+		return NULL;
+	}
 
-	buffer[info.st_size] = '\0'; // null terminator
+	buffer[info.st_size] = '\0'; /* null terminator */
 	*size = info.st_size;
 	close(fd);
 	return buffer;
-
-error_cleanup_buffer:
-	free(buffer);
-error_cleanup_file:
-	close(fd);
-error_exit:
-	return NULL;
 }
 
 /* ftw(3) forces you to use global variables to share state with the callback

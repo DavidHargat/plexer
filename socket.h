@@ -19,12 +19,9 @@ plxr_socket_ntop(struct sockaddr *addr);
 
 /* Writes to a socket `fd` with a specified timeout in milliseconds from a buffer `data`.
  *
- * returns the number of bytes written on success (including zero),
- * or less than 0 on failure (or timeout).
- *     PLX_POLL_FAILED
- *     PLX_WRITE_TIMEOUT
- *     PLX_WRITE_FAILED
- *     PLX_BAD_WRITE
+ * returns
+ *     number of bytes wrote on success
+ *    -1 on error
  */
 int
 plxr_socket_write_timeout(
@@ -36,11 +33,9 @@ plxr_socket_write_timeout(
 
 /* Read from a socket `fd` with a specified timeout in milliseconds into a buffer at `data`
  *
- * returns the number of bytes read on success (including zero),
- * or less than 0 on failure (or timeout).
- *     PLX_POLL_FAILED
- *     PLX_READ_TIMEOUT
- *     PLX_READ_FAILED
+ * returns
+ *     number of bytes read on success
+ *    -1 on error
  */
 int
 plxr_socket_read_timeout(

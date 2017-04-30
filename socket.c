@@ -14,7 +14,7 @@
 #include <poll.h>
 #include <arpa/inet.h>
 
-#include "error.h"
+#include "log.h"
 
 int
 plxr_socket_listen(struct sockaddr_in *addr, int port)
@@ -29,19 +29,31 @@ plxr_socket_listen(struct sockaddr_in *addr, int port)
 
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0))
 		== -1 )
+	{
+		ERROR("socket");
 		goto error;
+	}
 
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &YES, sizeof(YES))
 		== -1 )
+	{
+		ERROR("setsockopt");
 		goto error;
+	}
 
 	if (bind(sockfd, (struct sockaddr *) addr, sizeof(*addr))
 		== -1 )
+	{
+		ERROR("bind");
 		goto error;
+	}
 
 	if (listen(sockfd, SOCK_STREAM)
 		== -1 )
+	{
+		ERROR("listen");
 		goto error;
+	}
 
 	return sockfd;
 error:
@@ -67,26 +79,30 @@ plxr_socket_write_timeout(
 	switch (poll(&pfd, 1, timeout_milliseconds)) {
 
 	case -1:
-		return PLX_POLL_FAILED;
+		ERROR("poll");
+		return -1;
 
 	case 0:
-		return PLX_WRITE_TIMEOUT; /* timeout */
+		WARN("poll timeout");
+		return -1;
 
-	case 1: /* successful poll(2) */
-		ret = write(fd, data, data_len);
-
-		if (ret == -1)
-			return PLX_WRITE_FAILED;
+	case 1:
+		if ((ret = write(fd, data, data_len)) == -1)
+		{
+			ERROR("write");
+			return -1;
+		}
 		if (ret != data_len)
-			return PLX_BAD_WRITE; /* wrote less than the desired nbytes */
+		{
+			WARN("wrote less than the desired nbytes");
+			return -1;
+		}
 
-		return ret; /* success! return the number of bytes written */
-
-	default:
-		break;
+		return ret; /* success! */
 	}
 
-	return PLX_UNEXPECTED;
+	WARN("shouldn't get here");
+	return -1;
 }
 
 int
@@ -106,16 +122,21 @@ plxr_socket_read_timeout(
 	switch (poll(&pfd, 1, timeout_milliseconds)) {
 
 	case -1:
-		return PLX_POLL_FAILED;
+		ERROR("poll");
+		return -1;
 
 	case 0:
-		return PLX_READ_TIMEOUT;
+		WARN("poll timeout");
+		return -1;
 
 	case 1: /* successful poll(2) */
 		ret = read(fd, (void *)data, data_max);
 
 		if (ret == -1)
-			return PLX_READ_FAILED;
+		{
+			ERROR("read");
+			return -1;
+		}
 
 		return ret;
 
@@ -123,7 +144,8 @@ plxr_socket_read_timeout(
 		break;
 	}
 
-	return PLX_UNEXPECTED;
+	WARN("shouldn't get here");
+	return -1;
 }
 
 static char ntop_buffer[INET_ADDRSTRLEN];

@@ -13,8 +13,8 @@
 #include "server.h"
 #include "socket.h"
 #include "connection.h"
-#include "error.h"
 #include "version.h"
+#include "log.h"
 
 struct options {
 	char *port;
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 {
 	struct sockaddr_in listen_addr;
 	struct plxr_connection conn = {0};
-	int listen_fd, ret;
+	int listen_fd;
 	int port = 8080;
 
 	parse_args(argc, argv);
@@ -89,33 +89,30 @@ int main(int argc, char *argv[])
 	/* disable buffered output */
 	setvbuf(stdout, NULL, _IONBF, 0);
 
-
 	listen_fd = plxr_socket_listen(&listen_addr, port);
-	if (listen_fd == -1) {
-		perror("plxr_socket_listen");
+	if (listen_fd == -1)
+	{
+		WARN("plxr_socket_listen: failed");
 		return 1;
 	}
 
 	if (opts.verbose) {
-		printf("[*] version: %s\n", PLXR_VERSION_STRING);
-		printf("[*] listening on port: %d\n", port);
+		printf("version: %s\n", PLXR_VERSION_STRING);
+		printf("listening on port: %d\n", port);
 	}
 
 	do {
 		bzero(&conn, sizeof(conn));
-		ret = 0;
-		conn.fd = accept(listen_fd, &conn.addr, &socklen);
 
-		if (conn.fd == -1) {
-			perror("accept");
+		conn.fd = accept(listen_fd, &conn.addr, &socklen);
+		if (conn.fd == -1)
+		{
+			ERROR("accept");
 			continue;
 		}
 
-		while ((ret = plxr_connection_read(&conn)) > 0)
-		{
-			ret = plxr_serve_file_or_dir(&conn);
-			if (ret == 0) {
-
+		while (plxr_connection_read(&conn) == 0) {
+			if (plxr_serve_file_or_dir(&conn) == 0) {
 				/* TODO: this probably isn't very safe since uri is user input.
 				 * also these are logstalgia compatible logs :)
 				 */
@@ -126,19 +123,7 @@ int main(int argc, char *argv[])
 						conn.request.uri,
 						conn.resp_status_code,
 						conn.resp_len);
-
-			} else {
-				if (opts.verbose) {
-					printf("[!] plxr error: %s\n", plxr_strerror(ret));
-				}
 			}
-		}
-
-		if (opts.verbose
-			&& (ret < 0)
-			&& (ret != PLX_READ_TIMEOUT)) {
-			// TODO: PLX_READ_TIMEOUT isn't neccesarily an error, maybe refactor it from the error codes list...
-			printf("[!] plxr error: %s\n", plxr_strerror(ret));
 		}
 
 		shutdown(conn.fd, SHUT_RDWR);
